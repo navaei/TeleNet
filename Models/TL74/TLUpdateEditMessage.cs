@@ -1,0 +1,43 @@
+using System.IO;
+
+namespace TeleNet.Models.TL
+{
+    [TLObject(-469536605)]
+    public class TLUpdateEditMessage : TLAbsUpdate
+    {
+        public override int Constructor
+        {
+            get
+            {
+                return -469536605;
+            }
+        }
+
+        public TLAbsMessage Message { get; set; }
+        public int Pts { get; set; }
+        public int PtsCount { get; set; }
+
+
+        public void ComputeFlags()
+        {
+
+        }
+
+        public override void DeserializeBody(BinaryReader br)
+        {
+            Message = (TLAbsMessage)ObjectUtils.DeserializeObject(br);
+            Pts = br.ReadInt32();
+            PtsCount = br.ReadInt32();
+
+        }
+
+        public override void SerializeBody(BinaryWriter bw)
+        {
+            bw.Write(Constructor);
+            ObjectUtils.SerializeObject(Message, bw);
+            bw.Write(Pts);
+            bw.Write(PtsCount);
+
+        }
+    }
+}

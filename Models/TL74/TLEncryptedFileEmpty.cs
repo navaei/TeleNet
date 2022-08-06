@@ -1,0 +1,34 @@
+using System.IO;
+
+namespace TeleNet.Models.TL
+{
+    [TLObject(-1038136962)]
+    public class TLEncryptedFileEmpty : TLAbsEncryptedFile
+    {
+        public override int Constructor
+        {
+            get
+            {
+                return -1038136962;
+            }
+        }
+
+
+
+        public void ComputeFlags()
+        {
+
+        }
+
+        public override void DeserializeBody(BinaryReader br)
+        {
+
+        }
+
+        public override void SerializeBody(BinaryWriter bw)
+        {
+            bw.Write(Constructor);
+
+        }
+    }
+}

@@ -1,0 +1,1 @@
+﻿To convert TLSchema to Json, use Generator-Json project
