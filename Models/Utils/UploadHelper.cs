@@ -6,7 +6,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using TeleNet.Models.TL;
-using TeleNet.Models.TL;
 using TeleNet.Models.TL.Upload;
 
 namespace TeleNet.Models.Utils

@@ -21,6 +21,7 @@ using TLRequestSearch = TeleNet.Models.TL.Contacts.TLRequestSearch;
 using TLSendMessageTypingAction = TeleNet.Models.TL.TLSendMessageTypingAction;
 using TLStickerSet = TeleNet.Models.TL.Messages.TLStickerSet;
 using TLUser = TeleNet.Models.TL.TLUser;
+using System.IO;
 
 namespace TeleNet.Models
 {
@@ -55,6 +56,7 @@ namespace TeleNet.Models
             _session = Session.TryLoadOrCreateNew(store, sessionUserId, connectionAddress, port);
             _transport = new TcpTransport(_session.ServerAddress, _session.Port, _handler);
         }
+
 
         public async Task ConnectAsync(bool reconnect = false)
         {
@@ -318,6 +320,8 @@ namespace TeleNet.Models
             return await SendRequestAsync<TLContacts>(req);
         }
 
+        
+
         public async Task<TL.Messages.TLChatFull> GetFullChannelAsync(TLAbsInputChannel channel)
         {
             if (!IsUserAuthorized())
@@ -391,7 +395,7 @@ namespace TeleNet.Models
         }
 
         public async Task<TLAbsUpdates> SendUploadedDocument(
-            TLAbsInputPeer peer, TLAbsInputFile file, string caption, string mimeType, TLVector<TLAbsDocumentAttribute> attributes)
+            TLAbsInputPeer peer, TLAbsInputFile file, string caption, string mimeType, TLVector<TLAbsDocumentAttribute> attributes, TLAbsInputFile thumb)
         {
             return await SendRequestAsync<TLAbsUpdates>(new Models.TL111.Messages.TLRequestSendMedia()
             {
@@ -403,9 +407,10 @@ namespace TeleNet.Models
                 {
                     File = file,
                     MimeType = mimeType,
-                    Attributes = attributes
+                    Attributes = attributes,
+                    Thumb = thumb
                 },
-                Peer = peer
+                Peer = peer,
             });
         }
 
@@ -504,12 +509,10 @@ namespace TeleNet.Models
             return await SendRequestAsync<TLFound>(r);
         }
 
-        private void OnUserAuthenticated(TLAbsUser TLUser)
+        public async Task<TLAbsInputFile> UploadFile(string name, StreamReader reader)
         {
-            _session.TLUser = TLUser;
-            _session.SessionExpires = int.MaxValue;
-
-            _session.Save();
+            const long tenMb = 10 * 1024 * 1024;
+            return await UploadFile(name, reader, reader.BaseStream.Length >= tenMb);
         }
 
         public bool IsConnected
@@ -520,6 +523,127 @@ namespace TeleNet.Models
                     return false;
                 return _transport.IsConnected;
             }
+        }
+
+        private static string GetFileHash(byte[] data)
+        {
+            string md5_checksum;
+            using (var md5 = System.Security.Cryptography.MD5.Create())
+            {
+                var hash = md5.ComputeHash(data);
+                var hashResult = new StringBuilder(hash.Length * 2);
+
+                foreach (byte t in hash)
+                    hashResult.Append(t.ToString("x2"));
+
+                md5_checksum = hashResult.ToString();
+            }
+
+            return md5_checksum;
+        }
+
+        private static byte[] GetFile(StreamReader reader)
+        {
+            var file = new byte[reader.BaseStream.Length];
+
+            using (reader)
+            {
+                reader.BaseStream.Read(file, 0, (int)reader.BaseStream.Length);
+            }
+
+            return file;
+        }
+
+        private static Queue<byte[]> GetFileParts(byte[] file)
+        {
+            var fileParts = new Queue<byte[]>();
+
+            const int maxFilePart = 512 * 1024;
+
+            using (var stream = new MemoryStream(file))
+            {
+                while (stream.Position != stream.Length)
+                {
+                    if ((stream.Length - stream.Position) > maxFilePart)
+                    {
+                        var temp = new byte[maxFilePart];
+                        stream.Read(temp, 0, maxFilePart);
+                        fileParts.Enqueue(temp);
+                    }
+                    else
+                    {
+                        var length = stream.Length - stream.Position;
+                        var temp = new byte[length];
+                        stream.Read(temp, 0, (int)(length));
+                        fileParts.Enqueue(temp);
+                    }
+                }
+            }
+
+            return fileParts;
+        }
+
+        private async Task<TLAbsInputFile> UploadFile(string name, StreamReader reader, bool isBigFileUpload)
+        {
+            var file = GetFile(reader);
+            var fileParts = GetFileParts(file);
+
+            int partNumber = 0;
+            int partsCount = fileParts.Count;
+            long file_id = BitConverter.ToInt64(Helpers.GenerateRandomBytes(8), 0);
+            while (fileParts.Count != 0)
+            {
+                var part = fileParts.Dequeue();
+
+                if (isBigFileUpload)
+                {
+                    await SendRequestAsync<bool>(new TLRequestSaveBigFilePart
+                    {
+                        FileId = file_id,
+                        FilePart = partNumber,
+                        Bytes = part,
+                        FileTotalParts = partsCount
+                    });
+                }
+                else
+                {
+                    await SendRequestAsync<bool>(new TLRequestSaveFilePart
+                    {
+                        FileId = file_id,
+                        FilePart = partNumber,
+                        Bytes = part
+                    });
+                }
+                partNumber++;
+            }
+
+            if (isBigFileUpload)
+            {
+                return new TLInputFileBig
+                {
+                    Id = file_id,
+                    Name = name,
+                    Parts = partsCount
+                };
+            }
+            else
+            {
+                return new TLInputFile
+                {
+                    Id = file_id,
+                    Name = name,
+                    Parts = partsCount,
+                    Md5Checksum = GetFileHash(file)
+                };
+            }
+        }
+
+        private void OnUserAuthenticated(TLAbsUser TLUser)
+        {
+            _session.TLUser = TLUser;
+            _session.SessionExpires = int.MaxValue;
+
+            _session.Save();
         }
 
         public void Dispose()

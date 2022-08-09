@@ -37,12 +37,6 @@ namespace TeleNet.OpenClient
             var configuration = builder.Build();
             _updaterConfig = configuration.Get<UpdaterConfig>();
 
-            //TLContext.Init();
-
-            if (!string.IsNullOrEmpty(_updaterConfig.LocalProxy))
-                WebRequest.DefaultWebProxy = new WebProxy(_updaterConfig.LocalProxy.Split(':')[0],
-                    int.Parse(_updaterConfig.LocalProxy.Split(':')[1]));
-
             ConsoleLogger.Log("Enter phone number:");
             EnterPhoneNumber:
             var adminPhoneNumber = Console.ReadLine();
@@ -56,7 +50,6 @@ namespace TeleNet.OpenClient
 
                 adminPhoneNumber = adminPhoneNumber.Trim();
             }
-
 
             ConsoleLogger.Log("Starting login to telegram with " + adminPhoneNumber);
 
@@ -184,7 +177,6 @@ namespace TeleNet.OpenClient
                         else
                             throw;
                     }
-
                 }
 
                 ConsoleLogger.Log($"Enter login code{(sessionName.EndsWith("file") ? "(file)" : "")}:");
@@ -369,7 +361,6 @@ namespace TeleNet.OpenClient
             ConsoleLogger.Log("Get channel messages was done! Last:" + message.Id + " Messages Count:" + messages.Count + " ErrorCount:" + errorCount + " ------");
             return messages.Count;
         }
-
 
         private static async Task<Models.TL.Messages.TLStickerSet> GetStickerSet(ulong accessHash, ulong stickerSetId)
         {
