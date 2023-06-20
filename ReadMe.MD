@@ -154,7 +154,7 @@ The only way is [Telegram API docs](https://core.telegram.org/methods). Yes, it'
 Latest scheme in JSON format you can find [here](https://core.telegram.org/schema/json)
 
 
-# Special Thnaks
+# Special Thanks
 
 * [sochix](https://github.com/sochix) - Original TLSharp author
 * [Afshin Arani](http://aarani.ir) - TLGenerator, and a lot of other usefull things
